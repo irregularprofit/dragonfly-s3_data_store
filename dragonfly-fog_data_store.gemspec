@@ -7,6 +7,7 @@ Gem::Specification.new do |spec|
   spec.name          = "dragonfly-fog_data_store"
   spec.version       = Dragonfly::FogDataStore::VERSION
   spec.authors       = ["jimmy"]
+  spec.email         = ["irregular.profit@gmail.com"]
   spec.description   = %q{fog data store for Dragonfly}
   spec.summary       = %q{Data store for storing Dragonfly content (e.g. images) on fog}
   spec.homepage      = "https://github.com/irregularprofit/dragonfly-fog_data_store"
@@ -18,6 +19,6 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_runtime_dependency "dragonfly", "~> 1.0"
-  spec.add_runtime_dependency "fog"
+  spec.add_runtime_dependency "fog", '~> 0'
   spec.add_development_dependency "rspec", "~> 2.0"
 end
