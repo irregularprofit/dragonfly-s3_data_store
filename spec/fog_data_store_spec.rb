@@ -1,15 +1,15 @@
 require 'spec_helper'
 require 'dragonfly/spec/data_store_examples'
 require 'yaml'
-require 'dragonfly/s3_data_store'
+require 'dragonfly/fog_data_store'
 
-describe Dragonfly::S3DataStore do
+describe Dragonfly::FogDataStore do
 
   # To run these tests, put a file ".s3_spec.yml" in the dragonfly root dir, like this:
   # key: XXXXXXXXXX
   # secret: XXXXXXXXXX
   # enabled: true
-  if File.exist?(file = File.expand_path('../../.s3_spec.yml', __FILE__))
+  if File.exist?(file = File.expand_path('../../.fog_spec.yml', __FILE__))
     config = YAML.load_file(file)
     KEY = config['key']
     SECRET = config['secret']
@@ -24,7 +24,7 @@ describe Dragonfly::S3DataStore do
     BUCKET_NAME = "dragonfly-test-#{Time.now.to_i.to_s(36)}"
 
     before(:each) do
-      @data_store = Dragonfly::S3DataStore.new(
+      @data_store = Dragonfly::FogDataStore.new(
         :bucket_name => BUCKET_NAME,
         :access_key_id => KEY,
         :secret_access_key => SECRET,
@@ -38,7 +38,7 @@ describe Dragonfly::S3DataStore do
 
     before(:each) do
       Fog.mock!
-      @data_store = Dragonfly::S3DataStore.new(
+      @data_store = Dragonfly::FogDataStore.new(
         :bucket_name => BUCKET_NAME,
         :access_key_id => 'XXXXXXXXX',
         :secret_access_key => 'XXXXXXXXX',
@@ -59,7 +59,7 @@ describe Dragonfly::S3DataStore do
       app.configure do
         datastore :s3
       end
-      app.datastore.should be_a(Dragonfly::S3DataStore)
+      app.datastore.should be_a(Dragonfly::FogDataStore)
     end
   end
 
@@ -126,32 +126,32 @@ describe Dragonfly::S3DataStore do
   describe "not configuring stuff properly" do
     it "should require a bucket name on write" do
       @data_store.bucket_name = nil
-      proc{ @data_store.write(content) }.should raise_error(Dragonfly::S3DataStore::NotConfigured)
+      proc{ @data_store.write(content) }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require an access_key_id on write" do
       @data_store.access_key_id = nil
-      proc{ @data_store.write(content) }.should raise_error(Dragonfly::S3DataStore::NotConfigured)
+      proc{ @data_store.write(content) }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require a secret access key on write" do
       @data_store.secret_access_key = nil
-      proc{ @data_store.write(content) }.should raise_error(Dragonfly::S3DataStore::NotConfigured)
+      proc{ @data_store.write(content) }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require a bucket name on read" do
       @data_store.bucket_name = nil
-      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::S3DataStore::NotConfigured)
+      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require an access_key_id on read" do
       @data_store.access_key_id = nil
-      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::S3DataStore::NotConfigured)
+      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require a secret access key on read" do
       @data_store.secret_access_key = nil
-      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::S3DataStore::NotConfigured)
+      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     if !enabled #this will fail since the specs are not running on an ec2 instance with an iam role defined

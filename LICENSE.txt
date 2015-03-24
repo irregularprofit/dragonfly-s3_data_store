@@ -1,4 +1,4 @@
-Copyright (c) 2013 Mark Evans
+Copyright (c) 2015 Jimmy Hsu
 
 MIT License
 

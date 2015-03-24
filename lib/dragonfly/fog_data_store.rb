@@ -1,10 +1,10 @@
 require 'fog'
 require 'dragonfly'
 
-Dragonfly::App.register_datastore(:s3){ Dragonfly::S3DataStore }
+Dragonfly::App.register_datastore(:fog){ Dragonfly::FogDataStore }
 
 module Dragonfly
-  class S3DataStore
+  class FogDataStore
 
     # Exceptions
     class NotConfigured < RuntimeError; end
