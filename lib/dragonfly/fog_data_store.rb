@@ -9,37 +9,26 @@ module Dragonfly
     # Exceptions
     class NotConfigured < RuntimeError; end
 
-    REGIONS = {
-      'us-east-1' => 's3.amazonaws.com',  #default
-      'us-west-1' => 's3-us-west-1.amazonaws.com',
-      'us-west-2' => 's3-us-west-2.amazonaws.com',
-      'ap-northeast-1' => 's3-ap-northeast-1.amazonaws.com',
-      'ap-southeast-1' => 's3-ap-southeast-1.amazonaws.com',
-      'ap-southeast-2' => 's3-ap-southeast-2.amazonaws.com',
-      'eu-west-1' => 's3-eu-west-1.amazonaws.com',
-      'sa-east-1' => 's3-sa-east-1.amazonaws.com'
-    }
-
-    SUBDOMAIN_PATTERN = /^[a-z0-9][a-z0-9.-]+[a-z0-9]$/
+    REGIONS = [:dfw, :ord, :iad, :lon, :syd, :hkg]
 
     def initialize(opts={})
-      @bucket_name = opts[:bucket_name]
-      @access_key_id = opts[:access_key_id]
-      @secret_access_key = opts[:secret_access_key]
+      @container = opts[:container]
+      @username = opts[:username]
+      @api_key = opts[:api_key]
       @region = opts[:region]
-      @storage_headers = opts[:storage_headers] || {'x-amz-acl' => 'public-read'}
+      @secret = opts[:secret]
+      @storage_headers = opts[:storage_headers] || {}
+
       @url_scheme = opts[:url_scheme] || 'http'
       @url_host = opts[:url_host]
-      @use_iam_profile = opts[:use_iam_profile]
-      @root_path = opts[:root_path]
-      @fog_storage_options = opts[:fog_storage_options] || {}
     end
 
-    attr_accessor :bucket_name, :access_key_id, :secret_access_key, :region, :storage_headers, :url_scheme, :url_host, :use_iam_profile, :root_path, :fog_storage_options
+    attr_accessor :container, :username, :api_key, :region,
+      :secret, :url_scheme, :url_host, :storage_headers
 
     def write(content, opts={})
       ensure_configured
-      ensure_bucket_initialized
+      ensure_container_initialized
 
       headers = {'Content-Type' => content.mime_type}
       headers.merge!(opts[:headers]) if opts[:headers]
@@ -47,7 +36,7 @@ module Dragonfly
 
       rescuing_socket_errors do
         content.file do |f|
-          storage.put_object(bucket_name, full_path(uid), f, full_storage_headers(headers, content.meta))
+          storage.put_object(container, full_path(uid), f, full_storage_headers(headers, content.meta))
         end
       end
 
@@ -56,51 +45,53 @@ module Dragonfly
 
     def read(uid)
       ensure_configured
-      response = rescuing_socket_errors{ storage.get_object(bucket_name, full_path(uid)) }
+
+      response = rescuing_socket_errors{ storage.get_object(container, full_path(uid)) }
       [response.body, headers_to_meta(response.headers)]
+    rescue Fog::Storage::Rackspace::NotFound
+      nil
     rescue Excon::Errors::NotFound => e
       nil
     end
 
     def destroy(uid)
-      rescuing_socket_errors{ storage.delete_object(bucket_name, full_path(uid)) }
+      rescuing_socket_errors{ storage.delete_object(container, full_path(uid)) }
+    rescue Fog::Storage::Rackspace::NotFound
+      nil
     rescue Excon::Errors::NotFound, Excon::Errors::Conflict => e
       Dragonfly.warn("#{self.class.name} destroy error: #{e}")
     end
 
     def url_for(uid, opts={})
       if opts[:expires]
-        storage.get_object_https_url(bucket_name, full_path(uid), opts[:expires])
+        storage.get_object_https_url(container, full_path(uid), opts[:expires])
       else
         scheme = opts[:scheme] || url_scheme
-        host   = opts[:host]   || url_host || (
-          bucket_name =~ SUBDOMAIN_PATTERN ? "#{bucket_name}.s3.amazonaws.com" : "s3.amazonaws.com/#{bucket_name}"
-        )
-        "#{scheme}://#{host}/#{full_path(uid)}"
-      end
-    end
+        host   = opts[:host]   || url_host
+        host   = host.nil? ? "" : "#{host}/"
 
-    def domain
-      REGIONS[get_region]
+        "#{scheme}://#{host}#{full_path(uid)}"
+      end
     end
 
     def storage
       @storage ||= begin
-        storage = Fog::Storage.new(fog_storage_options.merge({
-          :provider => 'AWS',
-          :aws_access_key_id => access_key_id,
-          :aws_secret_access_key => secret_access_key,
-          :region => region,
-          :use_iam_profile => use_iam_profile
-        }).reject {|name, option| option.nil?})
-        storage.sync_clock
+        storage = Fog::Storage.new({
+          provider: 'Rackspace',
+          rackspace_username: username,
+          rackspace_api_key: api_key,
+          rackspace_region: region,
+          rackspace_temp_url_key: secret
+        })
         storage
       end
     end
 
-    def bucket_exists?
-      rescuing_socket_errors{ storage.get_bucket_location(bucket_name) }
+    def container_exists?
+      rescuing_socket_errors{ storage.get_container(container) }
       true
+    rescue Fog::Storage::Rackspace::NotFound
+      nil
     rescue Excon::Errors::NotFound => e
       false
     end
@@ -109,27 +100,23 @@ module Dragonfly
 
     def ensure_configured
       unless @configured
-        if use_iam_profile
-          raise NotConfigured, "You need to configure #{self.class.name} with bucket_name" if bucket_name.nil?
-        else
-          [:bucket_name, :access_key_id, :secret_access_key].each do |attr|
-            raise NotConfigured, "You need to configure #{self.class.name} with #{attr}" if send(attr).nil?
-          end
+        [:container, :username, :api_key, :container].each do |attr|
+          raise NotConfigured, "You need to configure #{self.class.name} with #{attr}" if send(attr).nil?
         end
         @configured = true
       end
     end
 
-    def ensure_bucket_initialized
-      unless @bucket_initialized
-        rescuing_socket_errors{ storage.put_bucket(bucket_name, 'LocationConstraint' => region) } unless bucket_exists?
-        @bucket_initialized = true
+    def ensure_container_initialized
+      unless @container_initialized
+        rescuing_socket_errors{ storage.put_container(container) } unless container_exists?
+        @container_initialized = true
       end
     end
 
     def get_region
-      reg = region || 'us-east-1'
-      raise "Invalid region #{reg} - should be one of #{valid_regions.join(', ')}" unless valid_regions.include?(reg)
+      reg = region || :ord
+      raise "Invalid region #{reg} - should be one of #{REGIONS.join(', ')}" unless REGIONS.include?(reg)
       reg
     end
 
@@ -138,7 +125,7 @@ module Dragonfly
     end
 
     def full_path(uid)
-      File.join *[root_path, uid].compact
+      File.join *[uid].compact
     end
 
     def full_storage_headers(headers, meta)
@@ -146,20 +133,14 @@ module Dragonfly
     end
 
     def headers_to_meta(headers)
-      json = headers['x-amz-meta-json']
+      json = headers['X-Object-Meta']
       if json && !json.empty?
         Serializer.json_decode(json)
-      elsif marshal_data = headers['x-amz-meta-extra']
-        Utils.stringify_keys(Serializer.marshal_b64_decode(marshal_data))
       end
     end
 
     def meta_to_headers(meta)
-      {'x-amz-meta-json' => Serializer.json_encode(meta)}
-    end
-
-    def valid_regions
-      REGIONS.keys
+      {'X-Object-Meta' => Serializer.json_encode(meta)}
     end
 
     def rescuing_socket_errors(&block)
