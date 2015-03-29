@@ -16,7 +16,6 @@ module Dragonfly
       @username = opts[:username]
       @api_key = opts[:api_key]
       @region = opts[:region]
-      @secret = opts[:secret]
       @storage_headers = opts[:storage_headers] || {}
 
       @url_scheme = opts[:url_scheme] || 'http'
@@ -24,7 +23,7 @@ module Dragonfly
     end
 
     attr_accessor :container, :username, :api_key, :region,
-      :secret, :url_scheme, :url_host, :storage_headers
+      :url_scheme, :url_host, :storage_headers
 
     def write(content, opts={})
       ensure_configured
@@ -62,26 +61,13 @@ module Dragonfly
       Dragonfly.warn("#{self.class.name} destroy error: #{e}")
     end
 
-    def url_for(uid, opts={})
-      if opts[:expires]
-        storage.get_object_https_url(container, full_path(uid), opts[:expires])
-      else
-        scheme = opts[:scheme] || url_scheme
-        host   = opts[:host]   || url_host
-        host   = host.nil? ? "" : "#{host}/"
-
-        "#{scheme}://#{host}#{full_path(uid)}"
-      end
-    end
-
     def storage
       @storage ||= begin
         storage = Fog::Storage.new({
           provider: 'Rackspace',
           rackspace_username: username,
           rackspace_api_key: api_key,
-          rackspace_region: region,
-          rackspace_temp_url_key: secret
+          rackspace_region: region
         })
         storage
       end

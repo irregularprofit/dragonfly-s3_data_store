@@ -160,53 +160,6 @@ describe Dragonfly::FogDataStore do
     end
   end
 
-  describe "urls for serving directly" do
-
-    before(:each) do
-      @uid = 'some/path/on/fog'
-    end
-
-    it "should use the container subdomain" do
-      @data_store.url_for(@uid).should == "http://some/path/on/fog"
-    end
-
-    it "should use path style if the container is not a valid Fog subdomain" do
-      container = CONTAINER.upcase
-      @data_store.container = container
-      @data_store.url_for(@uid).should == "http://some/path/on/fog"
-    end
-
-    it "should use the container subdomain for other regions too" do
-      @data_store.region = 'ord'
-      @data_store.url_for(@uid).should == "http://some/path/on/fog"
-    end
-
-    it "should give an expiring url" do
-      expiresIn = 1301476942
-      @data_store.url_for(@uid, expires: expiresIn).should =~
-      %r{^https://storage101.#{@data_store.region}\d{1}.clouddrive.com/v1/FogMockFS_\w+/#{@data_store.container}/some/path/on/fog\?temp_url_sig=\w+&temp_url_expires=#{expiresIn}}
-    end
-
-    it "should allow for using https" do
-      @data_store.url_for(@uid, scheme: 'https').should == "https://some/path/on/fog"
-    end
-
-    it "should allow for always using https" do
-      @data_store.url_scheme = 'https'
-      @data_store.url_for(@uid).should == "https://some/path/on/fog"
-    end
-
-    it "should allow for customizing the host" do
-      @data_store.url_for(@uid, host: 'customised.domain.com/and/path').should == "http://customised.domain.com/and/path/some/path/on/fog"
-    end
-
-    it "should allow the url_host to be customised permanently" do
-      url_host = 'customised.domain.com/and/path'
-      @data_store.url_host = url_host
-      @data_store.url_for(@uid).should == "http://#{url_host}/some/path/on/fog"
-    end
-  end
-
   describe "meta" do
     it "uses the X-Object-Meta header for meta" do
       uid = @data_store.write(content, headers: {'X-Object-Meta' => Dragonfly::Serializer.json_encode({potato: 44})})
