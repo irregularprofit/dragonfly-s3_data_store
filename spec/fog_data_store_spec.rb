@@ -42,7 +42,7 @@ describe Dragonfly::FogDataStore do
       app.configure do
         datastore :fog
       end
-      app.datastore.should be_a(Dragonfly::FogDataStore)
+      expect(app.datastore).to be_a(Dragonfly::FogDataStore)
     end
   end
 
@@ -50,24 +50,24 @@ describe Dragonfly::FogDataStore do
     it "should use the name from the content if set" do
       content.name = 'doobie.doo'
       uid = @data_store.write(content)
-      uid.should =~ /doobie\.doo$/
+      expect(uid).to match(/doobie\.doo$/)
       new_content.update(*@data_store.read(uid))
-      new_content.data.should == 'eggheads'
+      expect(new_content.data).to eq('eggheads')
     end
 
     it "should work ok with files with funny names" do
       content.name = "A Picture with many spaces in its name (at 20:00 pm).png"
       uid = @data_store.write(content)
-      uid.should =~ /A_Picture_with_many_spaces_in_its_name_at_20_00_pm_\.png$/
+      expect(uid).to match(/A_Picture_with_many_spaces_in_its_name_at_20_00_pm_\.png$/)
       new_content.update(*@data_store.read(uid))
-      new_content.data.should == 'eggheads'
+      expect(new_content.data).to eq('eggheads')
     end
 
     it "should allow for setting the path manually" do
       uid = @data_store.write(content, path: 'hello/there')
-      uid.should == 'hello/there'
+      expect(uid).to eq('hello/there')
       new_content.update(*@data_store.read(uid))
-      new_content.data.should == 'eggheads'
+      expect(new_content.data).to eq('eggheads')
     end
 
   end
@@ -75,32 +75,32 @@ describe Dragonfly::FogDataStore do
   describe "not configuring stuff properly" do
     it "should require a container name on write" do
       @data_store.container = nil
-      proc{ @data_store.write(content) }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
+      expect{ @data_store.write(content) }.to raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require an username on write" do
       @data_store.username = nil
-      proc{ @data_store.write(content) }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
+      expect{ @data_store.write(content) }.to raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require a secret access key on write" do
       @data_store.api_key = nil
-      proc{ @data_store.write(content) }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
+      expect{ @data_store.write(content) }.to raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require a container name on read" do
       @data_store.container = nil
-      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
+      expect{ @data_store.read('asdf') }.to raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require an username on read" do
       @data_store.username = nil
-      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
+      expect{ @data_store.read('asdf') }.to raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
 
     it "should require a secret access key on read" do
       @data_store.api_key = nil
-      proc{ @data_store.read('asdf') }.should raise_error(Dragonfly::FogDataStore::NotConfigured)
+      expect{ @data_store.read('asdf') }.to raise_error(Dragonfly::FogDataStore::NotConfigured)
     end
   end
 
@@ -112,8 +112,8 @@ describe Dragonfly::FogDataStore do
 
     it "should not try to create the container on read if it doesn't exist" do
       @data_store.container = "dragonfly-test-blah-blah-#{rand(100000000)}"
-      @data_store.send(:storage).should_not_receive(:put_container)
-      @data_store.read("gungle").should be_nil
+      expect(@data_store.send(:storage)).to_not receive(:put_container)
+      expect(@data_store.read("gungle")).to be_nil
     end
   end
 
@@ -123,37 +123,37 @@ describe Dragonfly::FogDataStore do
     end
 
     it "should allow configuring globally" do
-      @data_store.storage.should_receive(:put_object).with(CONTAINER, anything, anything,
+      expect(@data_store.storage).to receive(:put_object).with(CONTAINER, anything, anything,
                                                            hash_including('x-fog-foo' => 'biscuithead')
                                                           )
       @data_store.write(content)
     end
 
     it "should allow adding per-store" do
-      @data_store.storage.should_receive(:put_object).with(CONTAINER, anything, anything,
+      expect(@data_store.storage).to receive(:put_object).with(CONTAINER, anything, anything,
                                                            hash_including('x-fog-foo' => 'biscuithead', 'hello' => 'there')
                                                           )
       @data_store.write(content, headers: {'hello' => 'there'})
     end
 
     it "should let the per-store one take precedence" do
-      @data_store.storage.should_receive(:put_object).with(CONTAINER, anything, anything,
+      expect(@data_store.storage).to receive(:put_object).with(CONTAINER, anything, anything,
                                                            hash_including('x-fog-foo' => 'override!')
                                                           )
       @data_store.write(content, headers: {'x-fog-foo' => 'override!'})
     end
 
     it "should write setting the content type" do
-      @data_store.storage.should_receive(:put_object) do |_, __, ___, headers|
-        headers['Content-Type'].should == 'image/png'
+      expect(@data_store.storage).to receive(:put_object) do |_, __, ___, headers|
+        expect(headers['Content-Type']).to eq('image/png')
       end
       content.name = 'egg.png'
       @data_store.write(content)
     end
 
     it "allow overriding the content type" do
-      @data_store.storage.should_receive(:put_object) do |_, __, ___, headers|
-        headers['Content-Type'].should == 'text/plain'
+      expect(@data_store.storage).to receive(:put_object) do |_, __, ___, headers|
+        expect(headers['Content-Type']).to eq('text/plain')
       end
       content.name = 'egg.png'
       @data_store.write(content, headers: {'Content-Type' => 'text/plain'})
@@ -164,7 +164,7 @@ describe Dragonfly::FogDataStore do
     it "uses the X-Object-Meta header for meta" do
       uid = @data_store.write(content, headers: {'X-Object-Meta' => Dragonfly::Serializer.json_encode({potato: 44})})
       c, meta = @data_store.read(uid)
-      meta['potato'].should == 44
+      expect(meta['potato']).to eq(44)
     end
   end
 

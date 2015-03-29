@@ -39,11 +39,3 @@ end
 :storage_headers   # defaults to {}, can be overridden per-write - see below
   ```
 
-### Serving directly from S3
-
-  You can get the S3 url using
-
-  ```ruby
-my_model.attachment.url
-  ```
-
